@@ -1,0 +1,125 @@
+<html>
+	<head>
+		<title>Nested Pairs</title>
+		<style>
+			body { font-family: monospace; }
+
+			.pair {
+				border-left: 1px solid black;
+				border-right: 1px solid black;
+				border-radius: 3px;
+				display: inline-block;
+				padding: 5px;
+			}
+
+			.pair-elem {
+				display: inline-block;
+				min-width: 1em;
+				outline: none;
+				padding-bottom: 2px;
+			}
+
+			.pair-separator {
+				display: inline-block;
+			}
+
+			.pair-left {
+				border-bottom: 1px solid red;
+			}
+
+			.pair-right {
+				border-bottom: 1px solid blue;
+			}
+
+			#pair-template {
+				display: none;
+			}
+
+			.keybinding {
+				background-color: #DDD;
+				border-radius: 3px groove white;
+				width: 4em;
+				text-align: center;
+				display: inline-block;
+				padding: 3px;
+			}
+
+			.instruction {
+				margin-bottom: 3px;
+
+			}
+		</style>
+	</head>
+	<body>
+		<h2>Nested Pairs</h2>
+		<div id="container">
+		</div>
+		<div id="pair-template">
+			<div class="pair" contenteditable="false">
+				<div class="pair-elem pair-left" contenteditable="true"></div>
+				<div class="pair-separator">,</div>
+				<div class="pair-elem pair-right" contenteditable="true"></div>
+			</div>
+		</div>
+		<div id="instructions">
+			<h3>Instructions</h3>
+			<div class="instruction">
+				<span class="keybinding" style="visibility: hidden"></span>
+				<span class="meaning">Enter any expression.</span>
+			</div>
+			<div class="instruction">
+				<span class="keybinding">(</span>
+				<span class="meaning">nest pair</span>
+			</div>
+			<div class="instruction">
+				<span class="keybinding">tab</span>
+				<span class="meaning">next expr.</span>
+			</div>
+			<div class="instruction">
+				<span class="keybinding">sh+tab</span>
+				<span class="meaning">prev expr.</span>
+			</div>
+		</div>
+		<script>
+			var template = document.getElementById("pair-template").childNodes[1];
+			var LPAREN = 40;
+
+			function Pair() {
+				var elem = this.elem = template.cloneNode(true);
+				var children = elem.childNodes;
+				var left = this.left = children[1];
+				var right = this.right = children[5];
+
+				var _this = this;
+				function _addEvents(child) {
+					child.addEventListener("keypress", function(e) {
+						if (e.target == child) {
+							if (e.keyCode == LPAREN) {
+								var p = new Pair();
+								var contents = child.innerHTML;
+								child.innerHTML = "";
+								child.contentEditable = "false";
+								p.insert(child);
+								p.left.focus();
+								p.left.innerHTML = contents;
+								e.preventDefault();
+							}
+						}
+					});
+				}
+				_addEvents(left);
+				_addEvents(right);
+			}
+
+
+			Pair.prototype.insert = function(container) {
+				container.appendChild(this.elem);
+			}
+
+			var container = document.getElementById("container")
+			var root = new Pair()
+			root.insert(container)
+			root.left.focus();
+		</script>
+	</body>
+</html>
