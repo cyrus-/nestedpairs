@@ -1,0 +1,50 @@
+body { font-family: monospace; }
+
+.pair {
+	border-left: 1px solid black;
+	border-right: 1px solid black;
+	border-radius: 3px;
+	display: inline-block;
+	padding: 5px;
+}
+
+.pair-elem {
+	display: inline-block;
+	min-width: 1em;
+	outline: none;
+	padding-bottom: 2px;
+}
+
+.pair-separator {
+	display: inline-block;
+}
+
+.pair-left {
+	border-bottom: 1px solid red;
+}
+
+.pair-right {
+	border-bottom: 1px solid blue;
+}
+
+#pair-template {
+	display: none;
+}
+
+.keybinding {
+	background-color: #DDD;
+	border-radius: 3px groove white;
+	width: 4em;
+	text-align: center;
+	display: inline-block;
+	padding: 3px;
+}
+
+.instruction {
+	margin-bottom: 3px;
+
+}
+
+#github {
+	margin-top: 10px;
+}
