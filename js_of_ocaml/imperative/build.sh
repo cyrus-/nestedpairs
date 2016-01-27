@@ -4,6 +4,7 @@ ocamlbuild -use-ocamlfind \
   -pkg js_of_ocaml \
   -pkg tyxml \
   -pkg js_of_ocaml.tyxml \
+  -pkg js_of_ocaml.syntax \
   index.byte ;
 
-js_of_ocaml +weak.js -o index.js index.byte
+js_of_ocaml +weak.js -o index.ml.js index.byte

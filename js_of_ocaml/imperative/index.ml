@@ -1,13 +1,17 @@
 let module H = Tyxml_js.Html5 in 
+let module Html = Dom_html in 
 (* Find the initial elements *)
-let body = Dom_html.getElementById "body" in 
-let container = Dom_html.getElementById "container" in 
+let body = Html.getElementById "body" in 
+let container = Html.getElementById "container" in 
 (* pair template *)
-let template = H.(
+let newPair () = H.(
+  let left = div ~a:[a_class ["pair-elem"; "pair-left"]] [] in 
+  let separator = div ~a:[a_class ["pair-separator"]] [pcdata ","] in 
+  let right = div ~a:[a_class ["pair-elem"; "pair-right"]] [] in 
   div ~a:[a_class ["pair"]; a_contenteditable false] [
-    div ~a:[a_class ["pair-elem"; "pair-left"]] [];
-    div ~a:[a_class ["pair-separator"]] [pcdata ","];
-    div ~a:[a_class ["pair-elem"; "pair-right"]] []
+    left;
+    separator;
+    right
   ]
 ) in 
 (* instructions *)
@@ -35,7 +39,9 @@ let source_link = H.(
   ]
 ) in 
 (* Convert hello to a DOM element and append it to body *)
-begin 
-  Dom.appendChild body (Tyxml_js.To_dom.of_div instructions); 
-  Dom.appendChild body (Tyxml_js.To_dom.of_div source_link)
-end
+let append_div parent div = Dom.appendChild parent (Tyxml_js.To_dom.of_div div) in 
+Html.addEventListener body Html.Event.load
+  (Html.handler (fun ev -> 
+    List.iter (append_div body) [instructions; source_link];
+    Js._true
+  )) Js._true;
