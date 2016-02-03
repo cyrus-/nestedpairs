@@ -17,6 +17,8 @@ body { font-family: monospace; }
 
 .pair-separator {
 	display: inline-block;
+	padding-left: 3px;
+	padding-right: 3px;
 }
 
 .pair-left {

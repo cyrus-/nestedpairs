@@ -8,11 +8,7 @@
 		<div id="container">
 		</div>
 		<div id="pair-template">
-			<div class="pair" contenteditable="false">
-				<div class="pair-elem pair-left" contenteditable="true"></div>
-				<div class="pair-separator">,</div>
-				<div class="pair-elem pair-right" contenteditable="true"></div>
-			</div>
+			<div class="pair" contenteditable="false"><div class="pair-elem pair-left" contenteditable="true"></div><div class="pair-separator">,</div><div class="pair-elem pair-right" contenteditable="true"></div></div>
 		</div>
 		<div id="instructions">
 			<h3>Instructions</h3>
@@ -43,8 +39,8 @@
 			function Pair() {
 				var elem = this.elem = template.cloneNode(true);
 				var children = elem.childNodes;
-				var left = this.left = children[1];
-				var right = this.right = children[5];
+				var left = this.left = children[0];
+				var right = this.right = children[2];
 
 				var _this = this;
 				function _addEvents(child) {
