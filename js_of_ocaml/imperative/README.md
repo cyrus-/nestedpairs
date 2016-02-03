@@ -1,4 +1,5 @@
 # Js_of_ocaml version of nestedpairs
+This one uses only the basic DOM API.
 
 ## Resources
 
