@@ -24,8 +24,6 @@ module KeyCodes = struct
 end
 
 module Pair = struct 
-  exception NoTarget
-
   let separator () = ToDom.of_div X.(
     div ~a:[a_class ["pair-separator"]] [pcdata " , "]
   )
@@ -45,7 +43,7 @@ module Pair = struct
           let contents = Js.to_string (JsUtil.getOpt (h##textContent)) in 
           h##innerHTML <- (Js.string "");
           let p = newPair contents in 
-          let p_left = Js.Opt.get (p##firstChild) (fun _ -> raise NoTarget) in 
+          let p_left = JsUtil.getOpt (p##firstChild) in 
           Dom.appendChild h p;
           HtmlUtil.focus (p_left);
           Js._false
@@ -70,7 +68,6 @@ end
 (* Find the initial elements *)
 let body = Html.getElementById "body" in 
 let container = Html.getElementById "container" in 
-(* pair template *)
 (* instructions *)
 let instruction keybinding meaning = X.(
   div ~a:[a_class ["instruction"]] [
