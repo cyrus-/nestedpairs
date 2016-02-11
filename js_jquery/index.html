@@ -1,0 +1,55 @@
+<html>
+	<head>
+		<title>Nested Pairs</title>
+		<link href="../style.css" type="text/css" rel="stylesheet" />
+	</head>
+	<body>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+		<h2>Nested Pairs</h2>
+		<div id="container">
+		</div>
+		<div id="pair-template">
+			<div class="pair" contenteditable="false"><div class="pair-elem pair-left" contenteditable="true"></div><div class="pair-separator">,</div><div class="pair-elem pair-right" contenteditable="true"></div></div>
+		</div>
+		<div id="instructions">
+			<h3>Instructions</h3>
+			<div class="instruction">
+				<span class="keybinding" style="visibility: hidden"></span>
+				<span class="meaning">Enter any expression.</span>
+			</div>
+			<div class="instruction">
+				<span class="keybinding">(</span>
+				<span class="meaning">nest pair</span>
+			</div>
+			<div class="instruction">
+				<span class="keybinding">tab</span>
+				<span class="meaning">next expr.</span>
+			</div>
+			<div class="instruction">
+				<span class="keybinding">sh+tab</span>
+				<span class="meaning">prev expr.</span>
+			</div>
+		</div>
+		<div id="github">
+			<a href="https://github.com/cyrus-/nestedpairs/tree/master/js">Source on GitHub</a>
+		</div>
+		<script>
+			//Just for fun, trying a jquery implementation
+			var LPAREN = 40; 
+			function keypressEvent(e) {				
+				if (e.keyCode == LPAREN) {
+					$(e.target).attr('contenteditable','false').off();
+					var appended = $( "#pair-template" ).children().clone().appendTo( e.target );
+					appended.find(".pair-left").on( "keypress", keypressEvent ).focus();
+					appended.find(".pair-right").on( "keypress", keypressEvent );
+					e.preventDefault();
+				}	
+			}
+			var appended = $( "#pair-template" ).children().clone().appendTo("#container");
+			appended.find(".pair-left").on( "keypress", keypressEvent ).focus();
+			appended.find(".pair-right").on( "keypress", keypressEvent );
+
+
+		</script>
+	</body>
+</html>
