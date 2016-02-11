@@ -31,15 +31,6 @@ module NestedPairs = struct
     | SelPair (left, right) -> Pair (left, right)
     | InLeftOfPair (left, right) -> Pair ((remove_selection left), right)
     | InRightOfPair (left, right) -> Pair (left, (remove_selection right))
-
-    (* in_unfilled_hole : hexp_sel -> bool *)
-    let rec in_unfilled_hole s = match s with 
-    | SelHole _ -> true
-    | AtLeftOfPair _ -> false
-    | AtRightOfPair _ -> false
-    | SelPair _ -> false
-    | InLeftOfPair (left, _) -> in_unfilled_hole left
-    | InRightOfPair (_, right) -> in_unfilled_hole right
   end
 
   module Action = struct
