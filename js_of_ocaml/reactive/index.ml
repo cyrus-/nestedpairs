@@ -21,6 +21,8 @@ module NestedPairs = struct
     | InLeftOfPair of hexp_sel * hexp (* selection is in left component *)
     | InRightOfPair of hexp * hexp_sel (* selection is in right component *)
 
+    let empty_selhole = SelHole {beforeSel=""; inSel=""; afterSel=""}
+
     (* remove_selection : hexp_sel -> hexp *)
     let rec remove_selection s = match s with 
     | SelHole {beforeSel=b; inSel=i; afterSel=a} -> Hole (b ^ i ^ a)
@@ -50,8 +52,12 @@ module NestedPairs = struct
 
     let rec is_valid_action s action = match s with 
     | SelHole _ -> true
-    | AtLeftOfPair _ -> false (* only movement actions valid here *)
-    | AtRightOfPair _ -> false (* only movement actions valid here *)
+    | AtLeftOfPair _ -> (match action with
+      | ReplaceSelection _ -> false
+      | NewPair -> true)
+    | AtRightOfPair _ -> (match action with
+      | ReplaceSelection _ -> false
+      | NewPair -> true)
     | SelPair _ -> true
     | InLeftOfPair (left, _) -> is_valid_action left action
     | InRightOfPair (_, right) -> is_valid_action right action
@@ -70,8 +76,8 @@ module NestedPairs = struct
       | InRightOfPair (left, right) -> InRightOfPair (left, (apply right action)))
     | NewPair -> (match s with 
       | SelHole strsel -> InLeftOfPair (s, Hole "")
-      | AtLeftOfPair _ -> raise InvalidAction
-      | AtRightOfPair _ -> raise InvalidAction
+      | AtLeftOfPair _ -> InRightOfPair ((remove_selection s), empty_selhole)
+      | AtRightOfPair _ -> InRightOfPair ((remove_selection s), empty_selhole)
       | SelPair _ -> InLeftOfPair (s, Hole "")
       | InLeftOfPair (left, right) -> InLeftOfPair ((apply left action), right)
       | InRightOfPair (left, right) -> InRightOfPair (left, (apply right action))) 
