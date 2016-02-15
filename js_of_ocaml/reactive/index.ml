@@ -42,6 +42,38 @@ module NestedPairs = struct
       (* absolute length of the selection *)
       let length {startIdx=startIdx; endIdx=endIdx} =
         if startIdx > endIdx then startIdx - endIdx else endIdx - startIdx
+
+      (* the left-most index *)
+      let sub_start {startIdx=startIdx; endIdx=endIdx} = 
+        if startIdx > endIdx then endIdx else startIdx
+
+      (* the right-most index *)
+      let sub_end {startIdx; endIdx} = 
+        if startIdx > endIdx then startIdx else endIdx
+
+      (* extracts the selection from the provided string.
+       * Raises Invalid_argument if sel is invalid *)
+      let sub str sel =
+        let start = sub_start sel in 
+        let len = length sel in 
+        String.sub str start len
+
+      let before str sel = 
+        let start = sub_start sel in 
+        String.sub str 0 start
+
+      let after str sel = 
+        let sub_end = sub_end sel in 
+        let len = String.length str in 
+        let after_len = (len - sub_end) in 
+        String.sub str sub_end after_len
+
+      let splice str ssel str' = 
+        let len = String.length str in 
+        let before = String.sub str 0 (sub_start ssel) in 
+        let subend = sub_end ssel in 
+        let after = String.sub str subend (len - subend) in 
+        before ^ str' ^ after
     end
 
     (* selections within an hexp *)
@@ -85,6 +117,8 @@ module NestedPairs = struct
       }
 
       val to_string : t -> string
+      val to_string_and_sel : t -> string * StringSel.t
+      val of_string_and_sel : string * StringSel.t -> t
     end = struct
       type selected_string = string * direction
       exception InvalidSS
@@ -101,6 +135,29 @@ module NestedPairs = struct
       }
 
       let to_string {before; selected=(ss, _); after} = before ^ ss ^ after
+      let to_string_and_sel {before; selected=(ss, direction); after} = 
+        let str = before ^ ss ^ after in 
+        let len_before = String.length before in 
+        let len_ss = String.length ss in 
+        let string_sel = begin 
+          match direction with 
+          | Right -> 
+              StringSel.{
+                startIdx=len_before; 
+                endIdx=len_before + len_ss}
+          | Left -> 
+              StringSel.{
+                startIdx=len_before + len_ss; 
+                endIdx=len_before}
+        end in 
+        (str, string_sel)
+      
+      let of_string_and_sel (str, ssel) = 
+        let before = StringSel.before str ssel in
+        let ss = StringSel.sub str ssel in 
+        let direction = StringSel.direction_of ssel in 
+        let after = StringSel.after str ssel in 
+        {before; selected=(ss, direction); after}
     end
   end
 
@@ -176,10 +233,9 @@ module NestedPairs = struct
         match z with 
         | ZOutPair (direction, fst, snd) -> (Pair(fst, snd), OutPair direction)
         | ZPairSelected (direction, fst, snd) -> (Pair(fst, snd), PairSelected direction)
-        | ZInHole {before=before; selected=selected; after=after} -> 
-            let (ss, _) = ZString.look_ss selected in 
-            (Hole (before ^ ss ^ after), 
-             InHole {startIdx=0; endIdx=0} (* TODO *))
+        | ZInHole ss -> 
+            let (str, ssel) = ZString.to_string_and_sel ss in 
+            (Hole str, InHole ssel)
         | ZInFst (fst, snd) -> 
             let (hexp_fst, sel_fst) = of_z fst in 
             (Pair (hexp_fst, snd), InFst sel_fst)
@@ -206,9 +262,13 @@ module NestedPairs = struct
               let len = String.length str in 
               InHole {startIdx=len; endIdx=len})
             | (_, PairSelected _) -> raise BadInvariant
-            | (Hole str', InHole {startIdx=startIdx; endIdx=endIdx}) -> 
-                (Hole "", 
-                 InHole {startIdx=0; endIdx=0}) (* TODO *)
+            | (Hole str', InHole ssel) -> 
+                let spliced = StringSel.splice str' ssel str in 
+                let sub_start = StringSel.sub_start ssel in 
+                let sub_len = String.length str' in 
+                let new_cursor = sub_start + sub_len in 
+                (Hole spliced, 
+                 InHole {startIdx=new_cursor; endIdx=new_cursor})
             | (_, InHole _) -> raise BadInvariant
             | (Pair (fst, snd), InFst sel') -> 
                 let (fst', sel'') = apply (fst, sel') action in 
@@ -273,8 +333,8 @@ module NestedPairs = struct
         | (_, OutPair _) -> raise HExpSel.Invalid
         | (Pair (fst, snd), PairSelected direction) -> ZPairSelected (direction, fst, snd)
         | (_, PairSelected _) -> raise HExpSel.Invalid
-        | (Hole str, InHole {startIdx; endIdx}) -> 
-            ZInHole (raise NotImplemented) (* TODO *)
+        | (Hole str, InHole ssel) -> 
+            ZInHole (ZString.of_string_and_sel (str, ssel))
         | (_, InHole _) -> raise HExpSel.Invalid
         | (Pair (fst, snd), InFst sel') -> ZInFst ((of_u (fst, sel')), snd)
         | (_, InFst _) -> raise HExpSel.Invalid
@@ -293,7 +353,9 @@ module NestedPairs = struct
       let rec sel_of z = HExpSel.(match z with 
       | ZOutPair (direction, _, _) -> OutPair direction
       | ZPairSelected (direction, _, _) -> PairSelected direction
-      | ZInHole ss -> InHole StringSel.({startIdx=0; endIdx=0}) (* TODO *)
+      | ZInHole ss -> 
+          let (_, sel) = ZString.to_string_and_sel ss in 
+          InHole sel
       | ZInFst (fst, snd) -> InFst (sel_of fst)
       | ZInSnd (fst, snd) -> InSnd (sel_of snd))
 
@@ -308,7 +370,10 @@ module NestedPairs = struct
                 before=str;
                 selected=ZString.make_ss ("", Right);
                 after=""}
-            | ZInHole {before; selected; after} -> ZInHole {before; selected; after} (* TODO *)
+            | ZInHole {before; selected; after} -> ZInHole {
+                before=before ^ str; 
+                selected=ZString.make_ss ("", Right); 
+                after=after}
             | ZInFst (fst, snd) -> ZInFst ((apply fst action), snd)
             | ZInSnd (fst, snd) -> ZInSnd (fst, (apply snd action))
           end
