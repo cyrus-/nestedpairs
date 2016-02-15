@@ -1,49 +1,88 @@
 module NestedPairs = struct
-  exception InvariantViolated 
+  exception NotImplemented
 
   (* expressions with holes *)
   module HExp = struct 
-    type hexp = Pair of hexp * hexp | Hole of string
+    type t = Pair of t * t | Hole of string
+
+    let rec num_holes hexp = match hexp with
+    | Pair (fst, snd) -> (num_holes fst) + (num_holes snd)
+    | Hole _ -> 1
+
+    let rec num_pairs hexp = match hexp with
+    | Pair (fst, snd) -> (num_pairs fst) + (num_pairs snd) + 1
+    | Hole _ -> 0
+
+    let rec depth hexp = match hexp with
+    | Pair (fst, snd) -> (max (depth fst) (depth snd)) + 1
+    | Hole _ -> 0
   end
 
-  (* selections *)
   module Sel = struct
-    type string_sel = {startIdx : int; endIdx : int}
     type direction = Left | Right
-    type hexp_sel = 
-      OutPair of direction (* ([], {}([], [])) = InSnd(OutPair Left) *)
-    | PairSelected of direction (* ([], |{([], [])}) = InSnd(PairSelected Left) *)
-    | InHole of string_sel 
-    | InFst of hexp_sel 
-    | InSnd of hexp_sel
 
-    (* does the string_sel stay within the bounds of str? *) 
-    let valid_string_sel {startIdx=startIdx; endIdx=endIdx} str = (
-      let str_length = String.length str in
-      (startIdx >= 0) &&
-      (startIdx < str_length) &&
-      (endIdx >= 0) &&
-      (endIdx < str_length)
-    )
+   (* selections within a string *)
+    module StringSel = struct
+      type t = {startIdx : int; endIdx : int}
 
-    (* does the hexp_sel stay within the bounds of the hexp? *)
-    (* invalid example: (InFst sel, Hole str) *)
-    let rec valid_hexp_sel hexp_sel hexp = HExp.(match (hexp_sel, hexp) with 
-    | (OutPair _, Pair _) -> true
-    | (OutPair _, _) -> false
-    | (PairSelected _, Pair _) -> true 
-    | (PairSelected _, _) -> false
-    | (InHole str_sel, Hole str) -> valid_string_sel str_sel str
-    | (InHole _, _) -> false
-    | (InFst hexp_sel', Pair (fst, _)) -> valid_hexp_sel hexp_sel' fst
-    | (InFst _, _) -> false
-    | (InSnd hexp_sel', Pair (_, snd)) -> valid_hexp_sel hexp_sel' snd
-    | (InSnd _, _) -> false)
+      (* if startIdx > endIdx, then the cursor is to the left.
+       * otherwise, it is to the right. *)
+      let direction_of {startIdx=startIdx; endIdx=endIdx} = 
+        if startIdx > endIdx then Left else Right
+
+      (* does the string_sel stay within the bounds of str? *) 
+      let valid_for (str, {startIdx=startIdx; endIdx=endIdx}) = (
+        let str_length = String.length str in
+        (startIdx >= 0) &&
+        (startIdx < str_length) &&
+        (endIdx >= 0) &&
+        (endIdx < str_length)
+      )
+
+      (* absolute length of the selection *)
+      let length {startIdx=startIdx; endIdx=endIdx} =
+        if startIdx > endIdx then startIdx - endIdx else endIdx - startIdx
+    end
+
+    (* selections within an hexp *)
+    module HExpSel = struct
+      type t = 
+        OutPair of direction (* ([], {}([], [])) = InSnd(OutPair Left) *)
+      | PairSelected of direction (* ([], |{([], [])}) = InSnd(PairSelected Left) *)
+      | InHole of StringSel.t 
+      | InFst of t 
+      | InSnd of t
+
+      (* does the hexp_sel stay within the bounds of the hexp? *)
+      (* invalid example: (InFst sel, Hole str) *)
+      let rec valid_for v = HExp.(match v with 
+      | (Pair _, OutPair _) -> true
+      | (_, OutPair _) -> false
+      | (Pair _, PairSelected _) -> true 
+      | (_, PairSelected _) -> false
+      | (Hole str, InHole str_sel) -> StringSel.valid_for(str, str_sel)
+      | (_, InHole _) -> false
+      | (Pair(fst, _), InFst hexp_sel') -> valid_for (fst, hexp_sel')
+      | (_, InFst _) -> false
+      | (Pair(_, snd), InSnd hexp_sel') -> valid_for (snd, hexp_sel')
+      | (_, InSnd _) -> false)
+    end
+
+    module ZString = struct
+      type selected_string = string * direction
+      type t = {
+        before : string;
+        selected : selected_string;
+        after : string
+      }
+    end
   end
 
   module Action = struct
-    type action = 
-      MoveSelection of Sel.hexp_sel
+    open Sel
+
+    type t = 
+      MoveSelection of HExpSel.t
     | EnterString of string
     | NewPair
 
@@ -65,27 +104,135 @@ module NestedPairs = struct
     exception InvalidAction
   end
 
-  module type MODEL = sig
-    type t
+  module Models = struct
+    open Sel
 
-    val make : (HExp.hexp * Sel.hexp_sel) -> t
-    val hexp_of : t -> HExp.hexp
-    val sel_of : t -> Sel.hexp_sel
+    (* BModel and ZModel are isomorphic, mediated by of_zmodel and of_bmodel *)
+    module rec BModel : sig
+      type v = HExp.t * HExpSel.t
+      type t
+      exception Invalid
 
-    val apply : t -> Action.action -> t
+      (* make v raises Invalid if 
+       * not HExpSel.valid_for v *)
+      val make : v -> t
+
+      (* invariant: HExpSel.valid_for(view b) *) 
+      val view : t -> v
+
+      val of_z : ZModel.t -> t
+    end = struct
+      type v = HExp.t * HExpSel.t
+      type t = v
+      exception Invalid
+
+      let make v = 
+        if HExpSel.valid_for v then v else raise Invalid
+
+      let view v = v
+
+      let rec of_z z = 
+        let open HExp in
+        let open HExpSel in 
+        let open ZString in 
+        let open StringSel in 
+        let open ZModel in 
+        match z with 
+        | ZOutPair (direction, fst, snd) -> (Pair(fst, snd), OutPair direction)
+        | ZPairSelected (direction, fst, snd) -> (Pair(fst, snd), PairSelected direction)
+        | ZInHole {before=before; selected=(selected, direction); after=after} -> 
+            (Hole (before ^ selected ^ after), 
+             InHole {startIdx=0; endIdx=0} (* TODO *))
+        | ZInFst (fst, snd) -> 
+            let (hexp_fst, sel_fst) = of_z fst in 
+            (Pair (hexp_fst, snd), InFst sel_fst)
+        | ZInSnd (fst, snd) -> 
+            let (hexp_snd, sel_snd) = of_z snd in 
+            (Pair (fst, hexp_snd), InSnd sel_snd)
+    end and ZModel : sig
+      type t = 
+        ZOutPair of direction * HExp.t * HExp.t
+      | ZPairSelected of direction * HExp.t * HExp.t
+      | ZInHole of ZString.t
+      | ZInFst of t * HExp.t
+      | ZInSnd of HExp.t * t
+
+      (* of_v v raises BModel.Invalid if
+        * not HExpSel.valid_for v *)
+      val of_v : BModel.v -> t
+
+      val of_b : BModel.t -> t
+    end = struct
+      type t = 
+        ZOutPair of direction * HExp.t * HExp.t
+      | ZPairSelected of direction * HExp.t * HExp.t
+      | ZInHole of ZString.t
+      | ZInFst of t * HExp.t
+      | ZInSnd of HExp.t * t
+
+      let rec of_v v = 
+        let open HExp in
+        let open HExpSel in 
+        let open StringSel in 
+        match v with 
+        | (Pair (fst, snd), OutPair direction) -> ZOutPair (direction, fst, snd)
+        | (_, OutPair _) -> raise BModel.Invalid
+        | (Pair (fst, snd), PairSelected direction) -> ZPairSelected (direction, fst, snd)
+        | (_, PairSelected _) -> raise BModel.Invalid
+        | (Hole str, InHole {startIdx; endIdx}) -> 
+            ZInHole (raise NotImplemented) (* TODO *)
+        | (_, InHole _) -> raise BModel.Invalid
+        | (Pair (fst, snd), InFst sel') -> ZInFst ((of_v (fst, sel')), snd)
+        | (_, InFst _) -> raise BModel.Invalid
+        | (Pair (fst, snd), InSnd sel') -> ZInSnd (fst, (of_v (snd, sel')))
+        | (_, InSnd _) -> raise BModel.Invalid
+
+      let rec of_b b = of_v (BModel.view b)
+    end
+
+    module type ABSMODEL = sig
+      type t
+
+      val of_b : BModel.t -> t
+      val of_z : ZModel.t -> t
+      val to_b : t -> BModel.t
+      val to_z : t -> ZModel.t
+
+      (*val apply : t -> Action.action -> t*)
+    end
+
+    module AbsBModel : ABSMODEL = struct
+      type t = BModel.t
+
+      let of_b b = b
+      let of_z = BModel.of_z
+      let to_b b = b
+      let to_z = ZModel.of_b
+    end
+
+    module AbsZModel : ABSMODEL = struct
+      type t = ZModel.t
+
+      let of_b = ZModel.of_b
+      let of_z z = z
+      let to_b = BModel.of_z
+      let to_z z = z
+    end
   end
 
+
   (* simplest implementation of MODEL *)
-  module BasicModel : MODEL = struct 
+  module AbsSelModel : ABSMODEL = struct 
     open HExp
     open Sel
     open Action
 
-    type t = hexp * hexp_sel
+    type t = bmodel
 
-    let make (hexp, hexp_sel) = (hexp, hexp_sel)
-    let hexp_of (hexp, _) = hexp
-    let sel_of (_, hexp_sel) = hexp_sel
+    let bmake bmodel = bmodel
+    let get_sel bmodel = bmodel
+    let zmake zmodel = BModel.from_z zmodel
+    let get_zip bmodel = ZipperModel.from_b bmodel
 
     (* if not is_valid action (hexp, sel) then raises InvalidAction *)
     let rec apply (hexp, sel) action = match action with 
@@ -133,7 +280,6 @@ module NestedPairs = struct
   end
 
   module StringView(Model : MODEL) = struct
-    exception NotImplemented
     let view (model : Model.t) : string = raise NotImplemented
   end
 
