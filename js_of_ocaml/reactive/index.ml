@@ -52,22 +52,30 @@ module NestedPairs = struct
         if startIdx > endIdx then startIdx else endIdx
 
       (* extracts the selection from the provided string.
-       * Raises Invalid_argument if sel is invalid *)
+       * May raise Invalid_argument if sel is invalid *)
       let sub str sel =
         let start = sub_start sel in 
         let len = length sel in 
         String.sub str start len
 
+      (* extracts the string before the selection from the
+       * provided string. May raise Invalid_argument if sel
+       * is invalid. *)
       let before str sel = 
         let start = sub_start sel in 
         String.sub str 0 start
 
+      (* extracts the string after the selection from the
+       * provided string. May raise Invalid_argument if sel
+       * is invalid *)
       let after str sel = 
         let sub_end = sub_end sel in 
         let len = String.length str in 
         let after_len = (len - sub_end) in 
         String.sub str sub_end after_len
 
+      (* Constructs a new string by replacing the selection. 
+       * May raise  Invalid_argument if sel is invalid. *)
       let splice str ssel str' = 
         let len = String.length str in 
         let before = String.sub str 0 (sub_start ssel) in 
