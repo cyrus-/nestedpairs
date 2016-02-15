@@ -21,3 +21,7 @@ setup.log
 
 # exclude .ml.js files
 *.ml.js
+
+# .swp from vim
+*.swp
+
