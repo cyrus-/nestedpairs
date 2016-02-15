@@ -54,7 +54,7 @@ module NestedPairs = struct
       | InSnd of t
 
       (* does the hexp_sel stay within the bounds of the hexp? *)
-      (* invalid example: (InFst sel, Hole str) *)
+      (* invalid example: (Hole str, InFst sel) *)
       let rec valid_for v = HExp.(match v with 
       | (Pair _, OutPair _) -> true
       | (_, OutPair _) -> false
@@ -66,15 +66,41 @@ module NestedPairs = struct
       | (_, InFst _) -> false
       | (Pair(_, snd), InSnd hexp_sel') -> valid_for (snd, hexp_sel')
       | (_, InSnd _) -> false)
+
+      exception Invalid
     end
 
-    module ZString = struct
-      type selected_string = string * direction
+    module ZString : sig
+      type selected_string
+      exception InvalidSS
+      (* make_ss (str, direction) raises InvalidSS iff
+       * str = "" and direction = Left *)
+      val make_ss : string * direction -> selected_string
+      val look_ss : selected_string -> string * direction
+      
       type t = {
         before : string;
         selected : selected_string;
         after : string
       }
+
+      val to_string : t -> string
+    end = struct
+      type selected_string = string * direction
+      exception InvalidSS
+      let make_ss ((str, direction) as ss) = if str == "" then 
+        begin match direction with 
+        | Right -> ss
+        | Left -> raise InvalidSS
+        end else ss
+      let look_ss ss = ss
+      type t = {
+        before : string;
+        selected : selected_string;
+        after : string
+      }
+
+      let to_string {before; selected=(ss, _); after} = before ^ ss ^ after
     end
   end
 
@@ -86,50 +112,60 @@ module NestedPairs = struct
     | EnterString of string
     | NewPair
 
-    (* invariant: valid_hex_sel hexp_sel hexp *)
-    let rec is_valid action (hexp, hexp_sel) = match action with 
-    | MoveSelection hexp_sel' -> Sel.valid_hexp_sel hexp_sel' hexp
-    | EnterString _ -> Sel.(match hexp_sel with 
-      | OutPair _ -> false
-      | PairSelected _ -> true
-      | InHole _ -> true
-      | InFst hexp_sel' -> (match hexp with
-        | HExp.Pair (fst, _) -> is_valid action (fst, hexp_sel')
-        | _ -> raise InvariantViolated)
-      | InSnd hexp_sel' -> (match hexp with 
-        | HExp.Pair (_, snd) -> is_valid action (snd, hexp_sel')
-        | _ -> raise InvariantViolated))
+    (* raises HExpSel.Invalid if not 
+     * HExpSel.valid_for (hexp, hexp_sel) *)
+    let rec valid_for action (hexp, hexp_sel) = match action with 
+    | MoveSelection hexp_sel' -> HExpSel.valid_for (hexp, hexp_sel')
+    | EnterString _ -> begin 
+      match hexp_sel with 
+      | HExpSel.OutPair _ -> false
+      | HExpSel.PairSelected _ -> true
+      | HExpSel.InHole _ -> true
+      | HExpSel.InFst hexp_sel' -> (match hexp with
+        | HExp.Pair (fst, _) -> valid_for action (fst, hexp_sel')
+        | _ -> raise HExpSel.Invalid)
+      | HExpSel.InSnd hexp_sel' -> (match hexp with 
+        | HExp.Pair (_, snd) -> valid_for action (snd, hexp_sel')
+        | _ -> raise HExpSel.Invalid) 
+    end
     | NewPair -> true
 
-    exception InvalidAction
+    exception Invalid
   end
 
   module Models = struct
     open Sel
 
-    (* BModel and ZModel are isomorphic, mediated by of_zmodel and of_bmodel *)
+    (* BModel and ZModel are isomorphic, mediated by of_z and of_b *)
     module rec BModel : sig
-      type v = HExp.t * HExpSel.t
+      type u = HExp.t * HExpSel.t
       type t
-      exception Invalid
 
-      (* make v raises Invalid if 
-       * not HExpSel.valid_for v *)
-      val make : v -> t
+      (* make u raises HExpSel.Invalid if 
+       * not HExpSel.valid_for u *)
+      val make : u -> t
 
-      (* invariant: HExpSel.valid_for(view b) *) 
-      val view : t -> v
+      (* invariant: HExpSel.valid_for(look b) *) 
+      val look : t -> u
 
       val of_z : ZModel.t -> t
+
+      val hexp_of : t -> HExp.t
+      val sel_of : t -> HExpSel.t
+
+      (* apply b action raises Action.Invalid if 
+       * not Action.valid_for action b *)
+      val apply : t -> Action.t -> t
     end = struct
-      type v = HExp.t * HExpSel.t
-      type t = v
-      exception Invalid
+      exception BadInvariant
 
-      let make v = 
-        if HExpSel.valid_for v then v else raise Invalid
+      type u = HExp.t * HExpSel.t
+      type t = u
 
-      let view v = v
+      let make u = 
+        if HExpSel.valid_for u then u else raise HExpSel.Invalid
+
+      let look u = u
 
       let rec of_z z = 
         let open HExp in
@@ -140,8 +176,9 @@ module NestedPairs = struct
         match z with 
         | ZOutPair (direction, fst, snd) -> (Pair(fst, snd), OutPair direction)
         | ZPairSelected (direction, fst, snd) -> (Pair(fst, snd), PairSelected direction)
-        | ZInHole {before=before; selected=(selected, direction); after=after} -> 
-            (Hole (before ^ selected ^ after), 
+        | ZInHole {before=before; selected=selected; after=after} -> 
+            let (ss, _) = ZString.look_ss selected in 
+            (Hole (before ^ ss ^ after), 
              InHole {startIdx=0; endIdx=0} (* TODO *))
         | ZInFst (fst, snd) -> 
             let (hexp_fst, sel_fst) = of_z fst in 
@@ -149,6 +186,58 @@ module NestedPairs = struct
         | ZInSnd (fst, snd) -> 
             let (hexp_snd, sel_snd) = of_z snd in 
             (Pair (fst, hexp_snd), InSnd sel_snd)
+
+      let hexp_of (hexp, _) = hexp
+      let sel_of (_, sel) = sel
+
+      let rec apply (hexp, sel) action = 
+        let open HExp in 
+        let open HExpSel in 
+        let open StringSel in 
+        match action with 
+        | Action.MoveSelection sel' -> 
+          if HExpSel.valid_for (hexp, sel') then 
+            (hexp, sel') 
+          else raise Action.Invalid
+        | Action.EnterString str -> begin
+            match (hexp, sel) with 
+            | (_, OutPair _) -> raise Action.Invalid
+            | (Pair _, PairSelected _) -> (Hole str, 
+              let len = String.length str in 
+              InHole {startIdx=len; endIdx=len})
+            | (_, PairSelected _) -> raise BadInvariant
+            | (Hole str', InHole {startIdx=startIdx; endIdx=endIdx}) -> 
+                (Hole "", 
+                 InHole {startIdx=0; endIdx=0}) (* TODO *)
+            | (_, InHole _) -> raise BadInvariant
+            | (Pair (fst, snd), InFst sel') -> 
+                let (fst', sel'') = apply (fst, sel') action in 
+                (Pair (fst', snd), InFst sel'') 
+            | (_, InFst _) -> raise BadInvariant
+            | (Pair (fst, snd), InSnd sel') -> 
+                let (snd', sel'') = apply (snd, sel') action in 
+                (Pair (fst, snd'), InSnd sel'')
+            | (_, InSnd _) -> raise BadInvariant
+          end 
+        | Action.NewPair -> begin
+            match (hexp, sel) with
+            | (Pair _, OutPair Left) -> (Pair(Hole "", hexp), InFst(InHole {startIdx=0; endIdx=0}))
+            | (Pair _, OutPair Right) -> (Pair(hexp, Hole ""), InSnd(InHole {startIdx=0; endIdx=0}))
+            | (_, OutPair _) -> raise BadInvariant
+            | (Pair _, PairSelected Left) -> (Pair(Hole "", hexp), sel)
+            | (Pair _, PairSelected Right) -> (Pair(hexp, Hole ""), sel)
+            | (_, PairSelected _) -> raise BadInvariant
+            | (Hole str, InHole _) -> (Pair (hexp, Hole ""), InFst(sel))
+            | (_, InHole _) -> raise BadInvariant
+            | (Pair (fst, snd), InFst sel') -> 
+              let (fst', sel'') = apply (fst, sel') action in 
+              (Pair (fst', snd), InFst sel'')
+            | (_, InFst _) -> raise BadInvariant
+            | (Pair (fst, snd), InSnd sel') ->
+              let (snd', sel'') = apply (snd, sel') action in 
+              (Pair (fst, snd'), InSnd sel'')
+            | (_, InSnd _) -> raise BadInvariant
+          end
     end and ZModel : sig
       type t = 
         ZOutPair of direction * HExp.t * HExp.t
@@ -157,11 +246,16 @@ module NestedPairs = struct
       | ZInFst of t * HExp.t
       | ZInSnd of HExp.t * t
 
-      (* of_v v raises BModel.Invalid if
-        * not HExpSel.valid_for v *)
-      val of_v : BModel.v -> t
+      (* of_u u raises HExpSel.Invalid if
+        * not HExpSel.valid_for u *)
+      val of_u : BModel.u -> t
 
       val of_b : BModel.t -> t
+
+      val hexp_of : t -> HExp.t
+      val sel_of : t -> HExpSel.t
+
+      val apply : t -> Action.t -> t
     end = struct
       type t = 
         ZOutPair of direction * HExp.t * HExp.t
@@ -170,24 +264,77 @@ module NestedPairs = struct
       | ZInFst of t * HExp.t
       | ZInSnd of HExp.t * t
 
-      let rec of_v v = 
+      let rec of_u u = 
         let open HExp in
         let open HExpSel in 
         let open StringSel in 
-        match v with 
+        match u with 
         | (Pair (fst, snd), OutPair direction) -> ZOutPair (direction, fst, snd)
-        | (_, OutPair _) -> raise BModel.Invalid
+        | (_, OutPair _) -> raise HExpSel.Invalid
         | (Pair (fst, snd), PairSelected direction) -> ZPairSelected (direction, fst, snd)
-        | (_, PairSelected _) -> raise BModel.Invalid
+        | (_, PairSelected _) -> raise HExpSel.Invalid
         | (Hole str, InHole {startIdx; endIdx}) -> 
             ZInHole (raise NotImplemented) (* TODO *)
-        | (_, InHole _) -> raise BModel.Invalid
-        | (Pair (fst, snd), InFst sel') -> ZInFst ((of_v (fst, sel')), snd)
-        | (_, InFst _) -> raise BModel.Invalid
-        | (Pair (fst, snd), InSnd sel') -> ZInSnd (fst, (of_v (snd, sel')))
-        | (_, InSnd _) -> raise BModel.Invalid
+        | (_, InHole _) -> raise HExpSel.Invalid
+        | (Pair (fst, snd), InFst sel') -> ZInFst ((of_u (fst, sel')), snd)
+        | (_, InFst _) -> raise HExpSel.Invalid
+        | (Pair (fst, snd), InSnd sel') -> ZInSnd (fst, (of_u (snd, sel')))
+        | (_, InSnd _) -> raise HExpSel.Invalid
 
-      let rec of_b b = of_v (BModel.view b)
+      let rec of_b b = of_u (BModel.look b)
+
+      let rec hexp_of z = HExp.(match z with 
+      | ZOutPair (_, fst, snd) -> Pair (fst, snd)
+      | ZPairSelected (_, fst, snd) -> Pair (fst, snd)
+      | ZInHole ss -> Hole (ZString.to_string ss)
+      | ZInFst (fst, snd) -> Pair ((hexp_of fst), snd)
+      | ZInSnd (fst, snd) -> Pair (fst, (hexp_of snd)))
+
+      let rec sel_of z = HExpSel.(match z with 
+      | ZOutPair (direction, _, _) -> OutPair direction
+      | ZPairSelected (direction, _, _) -> PairSelected direction
+      | ZInHole ss -> InHole StringSel.({startIdx=0; endIdx=0}) (* TODO *)
+      | ZInFst (fst, snd) -> InFst (sel_of fst)
+      | ZInSnd (fst, snd) -> InSnd (sel_of snd))
+
+      let rec apply z action = 
+        match action with 
+        | Action.MoveSelection sel' -> of_b (BModel.apply (BModel.of_z z) action)
+        | Action.EnterString str -> begin
+            let open ZString in 
+            match z with 
+            | ZOutPair _ -> raise Action.Invalid
+            | ZPairSelected _ -> ZInHole {
+                before=str;
+                selected=ZString.make_ss ("", Right);
+                after=""}
+            | ZInHole {before; selected; after} -> ZInHole {before; selected; after} (* TODO *)
+            | ZInFst (fst, snd) -> ZInFst ((apply fst action), snd)
+            | ZInSnd (fst, snd) -> ZInSnd (fst, (apply snd action))
+          end
+        | Action.NewPair -> begin
+            let open ZString in 
+            match z with 
+            | ZOutPair (Left, fst, snd) -> 
+                ZInFst (
+                  ZInHole {before=""; selected=ZString.make_ss ("", Right); after=""},
+                  HExp.Pair (fst, snd))
+            | ZOutPair (Right, fst, snd) -> 
+                ZInSnd (
+                  HExp.Pair (fst, snd),
+                  ZInHole {before=""; selected=ZString.make_ss ("", Right); after=""})
+            | ZPairSelected (Left, fst, snd) -> 
+                ZPairSelected(Left, HExp.Hole "", HExp.Pair(fst, snd))
+            | ZPairSelected (Right, fst, snd) ->
+                ZPairSelected(Right, HExp.Pair(fst, snd), HExp.Hole "")
+            | ZInHole _ -> ZInFst (z, HExp.Hole "")
+            | ZInFst (fst, snd) -> 
+                let fst' = apply fst action in 
+                ZInFst (fst', snd)
+            | ZInSnd (fst, snd) -> 
+                let snd' = apply snd action in 
+                ZInSnd (fst, snd')
+          end
     end
 
     module type ABSMODEL = sig
@@ -198,7 +345,10 @@ module NestedPairs = struct
       val to_b : t -> BModel.t
       val to_z : t -> ZModel.t
 
-      (*val apply : t -> Action.action -> t*)
+      val hexp_of : t -> HExp.t
+      val sel_of : t -> HExpSel.t
+
+      val apply : t -> Action.t -> t
     end
 
     module AbsBModel : ABSMODEL = struct
@@ -208,6 +358,11 @@ module NestedPairs = struct
       let of_z = BModel.of_z
       let to_b b = b
       let to_z = ZModel.of_b
+
+      let hexp_of = BModel.hexp_of
+      let sel_of = BModel.sel_of
+
+      let apply = BModel.apply
     end
 
     module AbsZModel : ABSMODEL = struct
@@ -217,163 +372,22 @@ module NestedPairs = struct
       let of_z z = z
       let to_b = BModel.of_z
       let to_z z = z
+
+      let hexp_of = ZModel.hexp_of
+      let sel_of = ZModel.sel_of
+
+      let apply = ZModel.apply
     end
   end
 
-
-  (* simplest implementation of MODEL *)
-  module AbsSelModel : ABSMODEL = struct 
-    open HExp
-    open Sel
-    open Action
-
-    type t = bmodel
-
-    let bmake bmodel = bmodel
-    let get_sel bmodel = bmodel
-    let zmake zmodel = BModel.from_z zmodel
-    let get_zip bmodel = ZipperModel.from_b bmodel
-
-    (* if not is_valid action (hexp, sel) then raises InvalidAction *)
-    let rec apply (hexp, sel) action = match action with 
-      | Action.MoveSelection sel' -> 
-        if valid_hexp_sel sel' hexp then 
-          (hexp, sel') 
-        else raise InvalidAction
-      | Action.EnterString str -> (match (hexp, sel) with 
-        | (_, OutPair _) -> raise InvalidAction
-        | (Pair _, PairSelected _) -> (Hole str, 
-          let len = String.length str in 
-          InHole {startIdx=len; endIdx=len})
-        | (_, PairSelected _) -> raise InvariantViolated
-        | (Hole str', InHole {startIdx=startIdx; endIdx=endIdx}) -> (
-          let spliced_str = ""(* String.splice str' (startIdx, length) str *) in (* TODO: calculate spliced str *) 
-          (Hole spliced_str, let loc = startIdx + (String.length str') in InHole {startIdx=loc; endIdx=loc}))
-        | (_, InHole _) -> raise InvariantViolated
-        | (Pair (fst, snd), InFst sel') -> 
-          let (fst', sel'') = apply (fst, sel') action in 
-          (Pair (fst', snd), InFst sel'') 
-        | (_, InFst _) -> raise InvariantViolated
-        | (Pair (fst, snd), InSnd sel') -> 
-          let (snd', sel'') = apply (snd, sel') action in 
-          (Pair (fst, snd'), InSnd sel'')
-        | (_, InSnd _) -> raise InvariantViolated
-      )
-      | Action.NewPair -> (match (hexp, sel) with
-        | (Pair _, OutPair Left) -> (Pair(Hole "", hexp), InFst(InHole {startIdx=0; endIdx=0}))
-        | (Pair _, OutPair Right) -> (Pair(hexp, Hole ""), InSnd(InHole {startIdx=0; endIdx=0}))
-        | (_, OutPair _) -> raise InvariantViolated
-        | (Pair _, PairSelected Left) -> (Pair(Hole "", hexp), sel)
-        | (Pair _, PairSelected Right) -> (Pair(hexp, Hole ""), sel)
-        | (_, PairSelected _) -> raise InvariantViolated
-        | (Hole str, InHole _) -> (Pair (hexp, Hole ""), InFst(sel))
-        | (_, InHole _) -> raise InvariantViolated
-        | (Pair (fst, snd), InFst sel') -> 
-          let (fst', sel'') = apply (fst, sel') action in 
-          (Pair (fst', snd), InFst sel'')
-        | (_, InFst _) -> raise InvariantViolated
-        | (Pair (fst, snd), InSnd sel') ->
-          let (snd', sel'') = apply (snd, sel') action in 
-          (Pair (fst, snd'), InSnd sel'')
-        | (_, InSnd _) -> raise InvariantViolated
-      )
-  end
-
-  module StringView(Model : MODEL) = struct
+  module StringView(Model : Models.ABSMODEL) = struct
     let view (model : Model.t) : string = raise NotImplemented
   end
 
-  module ReactiveStringView = struct 
+  module ReactiveStringView(Model : Models.ABSMODEL) = struct 
     (* make an action stream *)
     (* make a model stream that reacts to action stream *)
     (* make a view stream that reacts to model stream *)
   end
-
-(*   module ZipperModel : MODEL = struct
-    type t = SelHole of string_sel (* e.g. [abc{def}ghi] where {} indicates selection *)
-    | AtLeftOfPair of hexp * hexp (* e.g. ([], {}([], [])) *)
-    | AtRightOfPair of hexp * hexp e.g. ([], ([], []){})
-    | SelPair of hexp * hexp (* e.g. ([], {([], [])}) *)
-    | InLeftOfPair of t * hexp (* selection is in left component *)
-    | InRightOfPair of hexp * t (* selection is in right component *)
-  end
- *)
-(*   module ZipperModel : MODEL = struct 
-    (* string with selection *)
-    type string_sel = {
-      beforeSel : string;
-      inSel : string;
-      afterSel : string
-    }
-
-    (* expressions with holes and a single selection *)
-    type t = 
-      SelHole of string_sel (* e.g. [abc{def}ghi] where {} indicates selection *)
-    | AtLeftOfPair of hexp * hexp (* e.g. ([], {}([], [])) *)
-    | AtRightOfPair of hexp * hexp (* e.g. ([], ([], []){}) *)
-    | SelPair of hexp * hexp (* e.g. ([], {([], [])}) *)
-    | InLeftOfPair of t * hexp (* selection is in left component *)
-    | InRightOfPair of hexp * t (* selection is in right component *)
-
-    let empty_selhole = SelHole {beforeSel=""; inSel=""; afterSel=""}
-
-    (* remove_selection : hexp_sel -> hexp *)
-    let rec remove_selection s = match s with 
-    | SelHole {beforeSel=b; inSel=i; afterSel=a} -> Hole (b ^ i ^ a)
-    | AtLeftOfPair (left, right) -> Pair (left, right)
-    | AtRightOfPair (left, right) -> Pair (left, right)
-    | SelPair (left, right) -> Pair (left, right)
-    | InLeftOfPair (left, right) -> Pair ((remove_selection left), right)
-    | InRightOfPair (left, right) -> Pair (left, (remove_selection right))
-
-    let rec cur_path s = match s with 
-    | SelHole {beforeSel=b; inSel=i; afterSel=a} -> InHole {startIdx=String.length b; length=String.length i}
-    | AtLeftOfPair _ -> LeftOfPair
-    | AtRightOfPair _ -> RightOfPair
-    | SelPair (left, right) -> PairSelected
-    | InLeftOfPair (left, _) -> InLeftComponent (cur_path left)
-    | InRightOfPair (_, right) -> InRightComponent (cur_path right)
-  end 
-
-  module Action = struct
-    open Model 
-
-    (* still need movement actions *)
-    type action = 
-      ReplaceSelection of string
-    | NewPair
-
-    let rec is_valid_action s action = match s with 
-    | SelHole _ -> true
-    | AtLeftOfPair _ -> (match action with
-      | ReplaceSelection _ -> false
-      | NewPair -> true)
-    | AtRightOfPair _ -> (match action with
-      | ReplaceSelection _ -> false
-      | NewPair -> true)
-    | SelPair _ -> true
-    | InLeftOfPair (left, _) -> is_valid_action left action
-    | InRightOfPair (_, right) -> is_valid_action right action
-
-    exception InvalidAction
-
-    (* invariant: if (is_valid_action action) then 
-                  apply s action does not raise InvalidAction. *)
-    let rec apply s action = match action with 
-    | ReplaceSelection newstr -> (match s with 
-      | SelHole strsel -> SelHole {strsel with inSel=newstr}
-      | AtLeftOfPair _ -> raise InvalidAction
-      | AtRightOfPair _ -> raise InvalidAction
-      | SelPair _ -> SelHole {beforeSel=newstr; inSel=""; afterSel=""}
-      | InLeftOfPair (left, right) -> InLeftOfPair ((apply left action), right)
-      | InRightOfPair (left, right) -> InRightOfPair (left, (apply right action)))
-    | NewPair -> (match s with 
-      | SelHole strsel -> InLeftOfPair (s, Hole "")
-      | AtLeftOfPair _ -> InRightOfPair ((remove_selection s), empty_selhole)
-      | AtRightOfPair _ -> InRightOfPair ((remove_selection s), empty_selhole)
-      | SelPair _ -> InLeftOfPair (s, Hole "")
-      | InLeftOfPair (left, right) -> InLeftOfPair ((apply left action), right)
-      | InRightOfPair (left, right) -> InRightOfPair (left, (apply right action))) 
-  end  *)
 end 
 
