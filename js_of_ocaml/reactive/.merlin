@@ -4,3 +4,5 @@ PKG js_of_ocaml.tyxml
 PKG js_of_ocaml.syntax
 PKG react
 PKG reactiveData
+PKG OUnit2
+
