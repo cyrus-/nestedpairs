@@ -467,7 +467,23 @@ module NestedPairs = struct
   end
 
   module StringView(Model : Models.ABSMODEL) = struct
-    let view (model : Model.t) : string = raise NotImplemented
+    open Models
+    
+    let viewHExp (hexp : HExp.t) : string =
+       match hexp with 
+        | HExp.Pair (fst,snd) -> "pair"
+        | HExp.Hole str -> "hole"
+
+    let view (model : Model.t) : string = 
+      match Model.to_z model with
+        | ZModel.ZOutPair (dir,fst,snd) -> "|" ^ (viewHExp fst) ^ (viewHExp snd)
+        | _ -> ""
+
+   (*       ZOutPair of direction * HExp.t * HExp.t
+      | ZPairSelected of direction * HExp.t * HExp.t
+      | ZInHole of ZString.t
+      | ZInFst of t * HExp.t
+      | ZInSnd of HExp.t * t *)
   end
 
   module ReactiveStringView(Model : Models.ABSMODEL) = struct 
