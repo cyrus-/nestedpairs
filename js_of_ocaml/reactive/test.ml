@@ -44,7 +44,7 @@ let testSel2 test_ctxt = assert_equal (direction_of simpleStringSel) Right
 
 open Models
 (* Create BModel *)
-let hexpSel = HExpSel.(InFst (OutPair Left))
+let hexpSel = HSel.(InFst (OutPair Left))
 let bmodel1 = BModel.make (nestedPair,hexpSel)
 (* Sample output  (|("test","test"),"") *)
 let testABSBMODEL test_ctxt = assert_equal (BModel.show bmodel1) (nestedPair,hexpSel)
