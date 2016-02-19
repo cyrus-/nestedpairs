@@ -1,6 +1,8 @@
 module NestedPairs = struct
   exception NotImplemented
 
+  module SSSS = String
+
   (* expressions with holes *)
   module HExp = struct 
     type t = Pair of t * t | Hole of string
@@ -87,7 +89,7 @@ module NestedPairs = struct
     end
 
     (* selections starting from the root of some unspecified hexp *)
-    module HExpSel = struct
+    module HSel = struct
       type t = 
         OutPair of direction (* ([], {}([], [])) = InSnd(OutPair Left) *)
       | PairSelected of direction (* ([], |{([], [])}) = InSnd(PairSelected Left) *)
@@ -180,28 +182,28 @@ module NestedPairs = struct
     open Sel
 
     type t = 
-      MoveSelection of HExpSel.t
+      MoveSelection of HSel.t
     | EnterString of string
     | NewPair
 
-    (* raises HExpSel.Invalid if not 
-     * HExpSel.valid_for (hexp, hsel) *)
+    (* raises HSel.Invalid if not 
+     * HSel.valid_for (hexp, hsel) *)
     let rec valid_for action (hexp, hsel) = match action with 
-    | MoveSelection hsel' -> HExpSel.valid_for (hexp, hsel')
+    | MoveSelection hsel' -> HSel.valid_for (hexp, hsel')
     | EnterString _ ->  
         begin match hsel with 
-        | HExpSel.OutPair _ -> false
-        | HExpSel.PairSelected _ -> true
-        | HExpSel.InHole _ -> true
-        | HExpSel.InFst hsel' -> 
+        | HSel.OutPair _ -> false
+        | HSel.PairSelected _ -> true
+        | HSel.InHole _ -> true
+        | HSel.InFst hsel' -> 
             begin match hexp with
             | HExp.Pair (fst, _) -> valid_for action (fst, hsel')
-            | _ -> raise HExpSel.Invalid
+            | _ -> raise HSel.Invalid
             end
-        | HExpSel.InSnd hsel' -> 
+        | HSel.InSnd hsel' -> 
             begin match hexp with 
             | HExp.Pair (_, snd) -> valid_for action (snd, hsel')
-            | _ -> raise HExpSel.Invalid 
+            | _ -> raise HSel.Invalid 
             end
         end
     | NewPair -> true
@@ -214,20 +216,20 @@ module NestedPairs = struct
 
     (* BModel and ZModel are isomorphic, mediated by of_z and of_b *)
     module rec BModel : sig
-      type u = HExp.t * HExpSel.t
+      type u = HExp.t * HSel.t
       type t
 
-      (* make u raises HExpSel.Invalid if 
-       * not HExpSel.valid_for u *)
+      (* make u raises HSel.Invalid if 
+       * not HSel.valid_for u *)
       val make : u -> t
 
-      (* invariant: HExpSel.valid_for(show b) *) 
+      (* invariant: HSel.valid_for(show b) *) 
       val show : t -> u
 
       val of_z : ZModel.t -> t
 
       val hexp_of : t -> HExp.t
-      val hsel_of : t -> HExpSel.t
+      val hsel_of : t -> HSel.t
 
       (* execute b action raises Action.Invalid if 
        * not Action.valid_for action b *)
@@ -235,17 +237,17 @@ module NestedPairs = struct
     end = struct
       exception BadInvariant
 
-      type u = HExp.t * HExpSel.t
+      type u = HExp.t * HSel.t
       type t = u
 
       let make u = 
-        if HExpSel.valid_for u then u else raise HExpSel.Invalid
+        if HSel.valid_for u then u else raise HSel.Invalid
 
       let show u = u
 
       let rec of_z z = 
         let open HExp in
-        let open HExpSel in 
+        let open HSel in 
         let open ZString in 
         let open StringSel in 
         let open ZModel in 
@@ -267,11 +269,11 @@ module NestedPairs = struct
 
       let rec execute (hexp, sel) action = 
         let open HExp in 
-        let open HExpSel in 
+        let open HSel in 
         let open StringSel in 
         match action with 
         | Action.MoveSelection sel' -> 
-          if HExpSel.valid_for (hexp, sel') then 
+          if HSel.valid_for (hexp, sel') then 
             (hexp, sel') 
           else raise Action.Invalid
         | Action.EnterString str -> begin
@@ -325,14 +327,14 @@ module NestedPairs = struct
       | ZInFst of t * HExp.t
       | ZInSnd of HExp.t * t
 
-      (* of_u u raises HExpSel.Invalid if
-        * not HExpSel.valid_for u *)
+      (* of_u u raises HSel.Invalid if
+        * not HSel.valid_for u *)
       val of_u : BModel.u -> t
 
       val of_b : BModel.t -> t
 
       val hexp_of : t -> HExp.t
-      val hsel_of : t -> HExpSel.t
+      val hsel_of : t -> HSel.t
 
       val execute : t -> Action.t -> t
     end = struct
@@ -345,20 +347,20 @@ module NestedPairs = struct
 
       let rec of_u u = 
         let open HExp in
-        let open HExpSel in 
+        let open HSel in 
         let open StringSel in 
         match u with 
         | (Pair (fst, snd), OutPair direction) -> ZOutPair (direction, fst, snd)
-        | (_, OutPair _) -> raise HExpSel.Invalid
+        | (_, OutPair _) -> raise HSel.Invalid
         | (Pair (fst, snd), PairSelected direction) -> ZPairSelected (direction, fst, snd)
-        | (_, PairSelected _) -> raise HExpSel.Invalid
+        | (_, PairSelected _) -> raise HSel.Invalid
         | (Hole str, InHole ssel) -> 
             ZInHole (ZString.of_string_and_sel (str, ssel))
-        | (_, InHole _) -> raise HExpSel.Invalid
+        | (_, InHole _) -> raise HSel.Invalid
         | (Pair (fst, snd), InFst sel') -> ZInFst ((of_u (fst, sel')), snd)
-        | (_, InFst _) -> raise HExpSel.Invalid
+        | (_, InFst _) -> raise HSel.Invalid
         | (Pair (fst, snd), InSnd sel') -> ZInSnd (fst, (of_u (snd, sel')))
-        | (_, InSnd _) -> raise HExpSel.Invalid
+        | (_, InSnd _) -> raise HSel.Invalid
 
       let rec of_b b = of_u (BModel.show b)
 
@@ -369,7 +371,7 @@ module NestedPairs = struct
       | ZInFst (fst, snd) -> Pair ((hexp_of fst), snd)
       | ZInSnd (fst, snd) -> Pair (fst, (hexp_of snd)))
 
-      let rec hsel_of z = HExpSel.(match z with 
+      let rec hsel_of z = HSel.(match z with 
       | ZOutPair (direction, _, _) -> OutPair direction
       | ZPairSelected (direction, _, _) -> PairSelected direction
       | ZInHole ss -> 
@@ -430,7 +432,7 @@ module NestedPairs = struct
       val to_z : t -> ZModel.t
 
       val hexp_of : t -> HExp.t
-      val hsel_of : t -> HExpSel.t
+      val hsel_of : t -> HSel.t
 
       val execute : t -> Action.t -> t
     end
