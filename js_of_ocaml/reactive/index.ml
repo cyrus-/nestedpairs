@@ -476,8 +476,9 @@ module NestedPairs = struct
 
     let view (model : Model.t) : string = 
       match Model.to_z model with
-        | ZModel.ZOutPair (dir,fst,snd) -> "|" ^ (viewHExp fst) ^ (viewHExp snd)
-        | _ -> ""
+        | ZModel.ZOutPair (dir,fst,snd) -> "TEST"
+        (* "|" ^ (viewHExp fst) ^ (viewHExp snd) *)
+        | _ -> "UNPARSED"
 
    (*       ZOutPair of direction * HExp.t * HExp.t
       | ZPairSelected of direction * HExp.t * HExp.t

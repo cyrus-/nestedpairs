@@ -58,7 +58,7 @@ let testViewHExpView2 test_ctxt = assert_equal (BModelStringView.viewHExp emptyP
 (* (Pair ((Pair (Pair ((Hole "test"),(Hole "test")),(Hole ""))),(Hole "test"))) *)
 let testViewHExpView3 test_ctxt = assert_equal (BModelStringView.viewHExp nestedNestedPair) "((('test','test'),''),'test')" 
 
-(* let testViewHExpView test_ctxt = assert_equal (BModelStringView.view (AbsBModel.of_b bmodel1)) "|('test','test')" *)
+let testViewHExpView test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "(|('test','test'),'')" (BModelStringView.view (AbsBModel.of_b bmodel1)) 
 (* finish ViewString *)
 
 (* TEST valid_of *)
@@ -84,7 +84,7 @@ let suite =
   "testViewHExpView1">:: testViewHExpView1;
   "testViewHExpView2">:: testViewHExpView2;
   "testViewHExpView3">:: testViewHExpView3;
-   (* "testABSMODELView1">:: testViewHExpView; *)
+   "testABSMODELView1">:: testViewHExpView;
   (* "testStringView">:: testStringView *)
   ]
 ;;
