@@ -35,7 +35,7 @@ let test8 test_ctxt = assert_equal nestedNestedPair2  (Pair ((Pair (Pair ((Hole 
 
 open Sel
 open StringSel
-
+ 
 let simpleStringSel = {startIdx = 0; endIdx = 1}
 
 let testSel1 test_ctxt = assert_equal simpleStringSel {startIdx = 0; endIdx = 1}
@@ -45,13 +45,20 @@ let testSel2 test_ctxt = assert_equal (direction_of simpleStringSel) Right
 open Models
 (* Create BModel *)
 let hexpSel = HSel.(InFst (OutPair Left))
-let bmodel1 = BModel.make (nestedPair,hexpSel)
+let bmodel1 = BModel.make (nestedPair,hexpSel)  (* (Pair (testHole,testHole),emptyHole) *)
 (* Sample output  (|("test","test"),"") *)
 let testABSBMODEL test_ctxt = assert_equal (BModel.show bmodel1) (nestedPair,hexpSel)
 
 module BModelStringView = StringView (AbsBModel)
 
-let testStringView test_ctxt = assert_equal (BModelStringView.view (AbsBModel.of_b bmodel1)) "(|('test','test'),'')"
+let testViewHExpView1 test_ctxt = assert_equal (BModelStringView.viewHExp testHole) "'test'" 
+
+let testViewHExpView2 test_ctxt = assert_equal (BModelStringView.viewHExp emptyPair) "('','')" 
+
+(* (Pair ((Pair (Pair ((Hole "test"),(Hole "test")),(Hole ""))),(Hole "test"))) *)
+let testViewHExpView3 test_ctxt = assert_equal (BModelStringView.viewHExp nestedNestedPair) "((('test','test'),''),'test')" 
+
+(* let testViewHExpView test_ctxt = assert_equal (BModelStringView.view (AbsBModel.of_b bmodel1)) "|('test','test')" *)
 (* finish ViewString *)
 
 (* TEST valid_of *)
@@ -74,7 +81,11 @@ let suite =
   "testSel1">:: testSel1;
   "testSel2">:: testSel2;
   "testABSBMODEL">:: testABSBMODEL;
-  "testStringView">:: testStringView
+  "testViewHExpView1">:: testViewHExpView1;
+  "testViewHExpView2">:: testViewHExpView2;
+  "testViewHExpView3">:: testViewHExpView3;
+   (* "testABSMODELView1">:: testViewHExpView; *)
+  (* "testStringView">:: testStringView *)
   ]
 ;;
 

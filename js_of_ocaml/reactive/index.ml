@@ -469,10 +469,10 @@ module NestedPairs = struct
   module StringView(Model : Models.ABSMODEL) = struct
     open Models
     
-    let viewHExp (hexp : HExp.t) : string =
+    let rec viewHExp (hexp : HExp.t) : string =
        match hexp with 
-        | HExp.Pair (fst,snd) -> "pair"
-        | HExp.Hole str -> "hole"
+        | HExp.Pair (fst,snd) ->  "(" ^ (viewHExp fst) ^ "," ^ (viewHExp snd) ^ ")" 
+        | HExp.Hole str -> "'" ^ str ^ "'" 
 
     let view (model : Model.t) : string = 
       match Model.to_z model with
