@@ -479,11 +479,7 @@ module NestedPairs = struct
                         | Right -> "|" ^ str ^ "}")
         )
       ^ stringZSel.after ^ "'"
-      (* stringSel.before ^ show_sd sel ^ stringSel.after *)
-        (* (match sel with 
-          | _ -> "SEL"
-        ) ^ stringSel.after
- *)
+
     let rec viewHExp (hexp : HExp.t) : string =
        match hexp with 
         | HExp.Pair (fst,snd) ->  "(" ^ (viewHExp fst) ^ "," ^ (viewHExp snd) ^ ")" 
@@ -502,8 +498,6 @@ module NestedPairs = struct
         | ZModel.ZInHole str -> viewStringSel str
         | ZModel.ZInFst (fst,snd) -> "(" ^ (viewZ fst) ^ "," ^ (viewHExp snd) ^ ")"
         | ZModel.ZInSnd (fst,snd) -> "(" ^ (viewHExp fst) ^ "," ^ (viewZ snd) ^ ")"
-
-
     
     let rec view (model : Model.t) : string =
         viewZ (Model.to_z model)
