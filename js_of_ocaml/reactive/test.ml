@@ -73,6 +73,21 @@ let bmodel3 = BModel.make (nestedNestedPair2,hexpSel3)
 let testABSMODELView3 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "((|('test','test'),''),(('test','test'),''))" (BModelStringView.view (AbsBModel.of_b bmodel3)) 
 
 
+let hexpSel4 = HSel.(PairSelected Left)
+(*   ((('test','test'),''),('test,'test'),'') *)
+let bmodel4 = BModel.make (testPair,hexpSel4)
+
+let testABSMODELView4 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "|('test','test')}" (BModelStringView.view (AbsBModel.of_b bmodel4)) 
+
+
+let hexpSel5 = HSel.(InFst (InHole {startIdx=1; endIdx=2}))
+(*   ('te|st,'test') *)
+let bmodel5 = BModel.make (testPair,hexpSel5)
+
+let testABSMODELView5 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "('t|e}st','test')" (BModelStringView.view (AbsBModel.of_b bmodel5)) 
+
+
+
 (* finish ViewString *)
 
 (* TEST valid_of *)
@@ -85,6 +100,7 @@ let testABSMODELView3 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf
 
 (* add number to hexp *)
 (* Add addition to evaluate expression *)
+
 let suite =
 "suite">:::
  ["test1">:: test1;
@@ -101,9 +117,12 @@ let suite =
   "testViewHExpView1">:: testViewHExpView1;
   "testViewHExpView2">:: testViewHExpView2;
   "testViewHExpView3">:: testViewHExpView3;
-   "testABSMODELView1">:: testABSMODELView1;
-   "testABSMODELView2">:: testABSMODELView2;
-   "testABSMODELView3">:: testABSMODELView3;
+  "testABSMODELView1">:: testABSMODELView1;
+  "testABSMODELView2">:: testABSMODELView2;
+  "testABSMODELView3">:: testABSMODELView3;
+  "testABSMODELView4">:: testABSMODELView4;
+  "testABSMODELView5">:: testABSMODELView5;
+   
   (* "testStringView">:: testStringView *)
   ]
 ;;

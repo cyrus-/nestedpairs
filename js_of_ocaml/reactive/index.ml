@@ -468,42 +468,45 @@ module NestedPairs = struct
 
   module StringView(Model : Models.ABSMODEL) = struct
     open Models
+    open Sel
+    open ZString
 
+    let viewStringSel (stringZSel : Sel.ZString.t) : string = 
+      "'" ^  stringZSel.before
+      ^ (match (show_sd stringZSel.selected) with
+         | (str,dir)-> (match dir with 
+                        | Left -> "{" ^ str ^ "|"
+                        | Right -> "|" ^ str ^ "}")
+        )
+      ^ stringZSel.after ^ "'"
+      (* stringSel.before ^ show_sd sel ^ stringSel.after *)
+        (* (match sel with 
+          | _ -> "SEL"
+        ) ^ stringSel.after
+ *)
     let rec viewHExp (hexp : HExp.t) : string =
        match hexp with 
         | HExp.Pair (fst,snd) ->  "(" ^ (viewHExp fst) ^ "," ^ (viewHExp snd) ^ ")" 
         | HExp.Hole str -> "'" ^ str ^ "'" 
 
-    open Sel
     let rec viewZ (modelZ : ZModel.t) : string = 
       match modelZ with
         | ZModel.ZOutPair (dir,fst,snd) -> 
             (match dir with
             | Left -> "|(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")"
             | Right -> "(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")|" )
-        (* "|" ^ (viewHExp fst) ^ (viewHExp snd)   ( * "|" ^ (viewHExp fst) ^ (viewHExp snd) *)
-        | ZModel.ZInHole str -> "InHole"
+        | ZModel.ZPairSelected (dir,fst,snd) -> 
+            (match dir with
+            | Left -> "|(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")}"
+            | Right -> "{(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")|" )
+        | ZModel.ZInHole str -> viewStringSel str
         | ZModel.ZInFst (fst,snd) -> "(" ^ (viewZ fst) ^ "," ^ (viewHExp snd) ^ ")"
         | ZModel.ZInSnd (fst,snd) -> "(" ^ (viewHExp fst) ^ "," ^ (viewZ snd) ^ ")"
-        | _ -> "UNPARSED"
-    
-    
 
+
+    
     let rec view (model : Model.t) : string =
         viewZ (Model.to_z model)
-    (*convert to concrete model and then pass to viewZ for display *) 
-      (* match Model.to_z model with
-        | ZModel.ZOutPair (dir,fst,snd) -> "ZOUTPAIR"  (* "|" ^ (viewHExp fst) ^ (viewHExp snd) *)
-        | ZModel.ZInHole str -> "ZINhOLE"
-        | ZModel.ZInFst (fst,_) -> "ZInFst" ^ (viewZ fst)
-        | ZModel.ZInSnd (snd,_) -> "ZinSnd"
-        | _ -> "UNPARSED" *)
-
-   (*       ZOutPair of direction * HExp.t * HExp.t
-      | ZPairSelected of direction * HExp.t * HExp.t
-      | ZInHole of ZString.t
-      | ZInFst of t * HExp.t
-      | ZInSnd of HExp.t * t *)
   end
 
   module ReactiveStringView(Model : Models.ABSMODEL) = struct 
