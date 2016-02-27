@@ -468,17 +468,36 @@ module NestedPairs = struct
 
   module StringView(Model : Models.ABSMODEL) = struct
     open Models
-    
+
     let rec viewHExp (hexp : HExp.t) : string =
        match hexp with 
         | HExp.Pair (fst,snd) ->  "(" ^ (viewHExp fst) ^ "," ^ (viewHExp snd) ^ ")" 
         | HExp.Hole str -> "'" ^ str ^ "'" 
 
-    let view (model : Model.t) : string = 
-      match Model.to_z model with
-        | ZModel.ZOutPair (dir,fst,snd) -> "TEST"
-        (* "|" ^ (viewHExp fst) ^ (viewHExp snd) *)
+    open Sel
+    let rec viewZ (modelZ : ZModel.t) : string = 
+      match modelZ with
+        | ZModel.ZOutPair (dir,fst,snd) -> 
+            (match dir with
+            | Left -> "|(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")"
+            | Right -> "(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")|" )
+        (* "|" ^ (viewHExp fst) ^ (viewHExp snd)   ( * "|" ^ (viewHExp fst) ^ (viewHExp snd) *)
+        | ZModel.ZInHole str -> "InHole"
+        | ZModel.ZInFst (fst,snd) -> "(" ^ (viewZ fst) ^ "," ^ (viewHExp snd) ^ ")"
+        | ZModel.ZInSnd (fst,snd) -> "(" ^ (viewHExp fst) ^ "," ^ (viewZ snd) ^ ")"
         | _ -> "UNPARSED"
+    
+    
+
+    let rec view (model : Model.t) : string =
+        viewZ (Model.to_z model)
+    (*convert to concrete model and then pass to viewZ for display *) 
+      (* match Model.to_z model with
+        | ZModel.ZOutPair (dir,fst,snd) -> "ZOUTPAIR"  (* "|" ^ (viewHExp fst) ^ (viewHExp snd) *)
+        | ZModel.ZInHole str -> "ZINhOLE"
+        | ZModel.ZInFst (fst,_) -> "ZInFst" ^ (viewZ fst)
+        | ZModel.ZInSnd (snd,_) -> "ZinSnd"
+        | _ -> "UNPARSED" *)
 
    (*       ZOutPair of direction * HExp.t * HExp.t
       | ZPairSelected of direction * HExp.t * HExp.t

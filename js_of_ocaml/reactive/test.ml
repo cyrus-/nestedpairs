@@ -45,7 +45,7 @@ let testSel2 test_ctxt = assert_equal (direction_of simpleStringSel) Right
 open Models
 (* Create BModel *)
 let hexpSel = HSel.(InFst (OutPair Left))
-let bmodel1 = BModel.make (nestedPair,hexpSel)  (* (Pair (testHole,testHole),emptyHole) *)
+let bmodel1 = BModel.make (nestedPair,hexpSel)  (* (Pair (testHole,testHole),emptyHole)    (|('test','test'),'') *)
 (* Sample output  (|("test","test"),"") *)
 let testABSBMODEL test_ctxt = assert_equal (BModel.show bmodel1) (nestedPair,hexpSel)
 
@@ -58,7 +58,21 @@ let testViewHExpView2 test_ctxt = assert_equal (BModelStringView.viewHExp emptyP
 (* (Pair ((Pair (Pair ((Hole "test"),(Hole "test")),(Hole ""))),(Hole "test"))) *)
 let testViewHExpView3 test_ctxt = assert_equal (BModelStringView.viewHExp nestedNestedPair) "((('test','test'),''),'test')" 
 
-let testViewHExpView test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "(|('test','test'),'')" (BModelStringView.view (AbsBModel.of_b bmodel1)) 
+let testABSMODELView1 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "(|('test','test'),'')" (BModelStringView.view (AbsBModel.of_b bmodel1)) 
+
+let hexpSel = HSel.(InSnd (OutPair Right))
+(*   ((('test','test'),''),('test,'test'),'') *)
+let bmodel2 = BModel.make (nestedNestedPair2,hexpSel)
+
+let testABSMODELView2 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "((('test','test'),''),(('test','test'),'')|)" (BModelStringView.view (AbsBModel.of_b bmodel2)) 
+
+let hexpSel3 = HSel.(InFst (InFst (OutPair Left)))
+(*   ((('test','test'),''),('test,'test'),'') *)
+let bmodel3 = BModel.make (nestedNestedPair2,hexpSel3)
+
+let testABSMODELView3 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "((|('test','test'),''),(('test','test'),''))" (BModelStringView.view (AbsBModel.of_b bmodel3)) 
+
+
 (* finish ViewString *)
 
 (* TEST valid_of *)
@@ -68,6 +82,9 @@ let testViewHExpView test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf 
 (* Test string selection methods *)
 
 (* Name the test cases and group them together *)
+
+(* add number to hexp *)
+(* Add addition to evaluate expression *)
 let suite =
 "suite">:::
  ["test1">:: test1;
@@ -84,7 +101,9 @@ let suite =
   "testViewHExpView1">:: testViewHExpView1;
   "testViewHExpView2">:: testViewHExpView2;
   "testViewHExpView3">:: testViewHExpView3;
-   "testABSMODELView1">:: testViewHExpView;
+   "testABSMODELView1">:: testABSMODELView1;
+   "testABSMODELView2">:: testABSMODELView2;
+   "testABSMODELView3">:: testABSMODELView3;
   (* "testStringView">:: testStringView *)
   ]
 ;;
