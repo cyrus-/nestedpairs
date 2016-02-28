@@ -73,6 +73,7 @@ let bmodel3 = BModel.make (nestedNestedPair2,hexpSel3)
 let testABSMODELView3 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "((|('test','test'),''),(('test','test'),''))" (BModelStringView.view (AbsBModel.of_b bmodel3)) 
 
 
+
 let hexpSel4 = HSel.(PairSelected Left)
 (*   ((('test','test'),''),('test,'test'),'') *)
 let bmodel4 = BModel.make (testPair,hexpSel4)
@@ -86,11 +87,45 @@ let bmodel5 = BModel.make (testPair,hexpSel5)
 
 let testABSMODELView5 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "('t|e}st','test')" (BModelStringView.view (AbsBModel.of_b bmodel5)) 
 
-
-
 (* finish ViewString *)
 
-(* TEST valid_of *)
+(* module HSel = struct 
+      | (Pair(_, snd), InSnd hsel') -> valid_for (snd, hsel')
+      | (_, InSnd _) -> false)
+ *)
+
+(* TEST valid_for *)
+let hexpS1 = HSel.(InFst (InHole {startIdx=1; endIdx=2}))
+let testValidSel1 test_ctxt = assert_equal false (HSel.valid_for (testHole , hexpS1)) 
+
+(* let testHole = Hole "test";; *)
+let hexpS2 = HSel.(InHole {startIdx=(-1); endIdx=2})
+let testValidSel2 test_ctxt = assert_equal false (HSel.valid_for (testHole , hexpS2)) 
+
+let hexpS3 = HSel.(InHole {startIdx=1; endIdx=6})
+let testValidSel3 test_ctxt = assert_equal false (HSel.valid_for (testHole , hexpS3)) 
+
+let hexpS4 = HSel.(InHole {startIdx=1; endIdx=6})
+let testValidSel4 test_ctxt = assert_equal false (HSel.valid_for (testHole , hexpS4)) 
+
+let hexpS5 = HSel.(OutPair Left)
+let testValidSel5 test_ctxt = assert_equal false (HSel.valid_for (testHole , hexpS5)) 
+
+let hexpS6 = HSel.(PairSelected Left)
+let testValidSel6 test_ctxt = assert_equal false (HSel.valid_for (testHole , hexpS6)) 
+
+let hexpS7 = HSel.(PairSelected Left)
+let testValidSel7 test_ctxt = assert_equal true (HSel.valid_for (testPair , hexpS7)) 
+
+let hexpS8 = HSel.(OutPair Left)
+let testValidSel8 test_ctxt = assert_equal true (HSel.valid_for (testPair , hexpS8)) 
+
+let hexpS9 = HSel.(InHole {startIdx=1; endIdx=3})
+let testValidSel9 test_ctxt = assert_equal false (HSel.valid_for (testPair , hexpS9)) 
+
+let hexpS10 = HSel.(InSnd (InFst (InHole {startIdx=1; endIdx=2})))
+let testValidSel10 test_ctxt = assert_equal false (HSel.valid_for (nestedNestedPair2 , hexpS10)) 
+
 
 (* Test actions *)
 
@@ -122,7 +157,16 @@ let suite =
   "testABSMODELView3">:: testABSMODELView3;
   "testABSMODELView4">:: testABSMODELView4;
   "testABSMODELView5">:: testABSMODELView5;
-   
+  "testValidSel1">:: testValidSel1;
+  "testValidSel2">:: testValidSel2;
+  "testValidSel3">:: testValidSel3;
+  "testValidSel4">:: testValidSel4;
+  "testValidSel5">:: testValidSel5;
+  "testValidSel6">:: testValidSel6;
+  "testValidSel7">:: testValidSel7;
+  "testValidSel8">:: testValidSel8;
+  "testValidSel9">:: testValidSel9;
+  "testValidSel10">:: testValidSel10;
   (* "testStringView">:: testStringView *)
   ]
 ;;
