@@ -35,13 +35,14 @@ module NestedPairs = struct
       let direction_of {startIdx; endIdx} = 
         if startIdx > endIdx then Left else Right
 
-      (* does the ssel stay within the bounds of str? *) 
+      (* does the ssel stay within the bounds of str? 
+      MH had to add so that last char can be chosen*) 
       let valid_for (str, {startIdx; endIdx}) = 
         let str_length = String.length str in
         (startIdx >= 0) &&
-        (startIdx < str_length) &&
+        (startIdx <= str_length) &&
         (endIdx >= 0) &&
-        (endIdx < str_length)
+        (endIdx <= str_length)
       
       (* absolute length of the selection *)
       let length {startIdx; endIdx} =
@@ -468,22 +469,39 @@ module NestedPairs = struct
 
   module StringView(Model : Models.ABSMODEL) = struct
     open Models
-    
-    let viewHExp (hexp : HExp.t) : string =
+    open Sel
+    open ZString
+
+    let viewStringSel (stringZSel : Sel.ZString.t) : string = 
+      "'" ^  stringZSel.before
+      ^ (match (show_sd stringZSel.selected) with
+         | (str,dir)-> (match dir with 
+                        | Left -> "{" ^ str ^ "|"
+                        | Right -> "|" ^ str ^ "}")
+        )
+      ^ stringZSel.after ^ "'"
+
+    let rec viewHExp (hexp : HExp.t) : string =
        match hexp with 
-        | HExp.Pair (fst,snd) -> "pair"
-        | HExp.Hole str -> "hole"
+        | HExp.Pair (fst,snd) ->  "(" ^ (viewHExp fst) ^ "," ^ (viewHExp snd) ^ ")" 
+        | HExp.Hole str -> "'" ^ str ^ "'" 
 
-    let view (model : Model.t) : string = 
-      match Model.to_z model with
-        | ZModel.ZOutPair (dir,fst,snd) -> "|" ^ (viewHExp fst) ^ (viewHExp snd)
-        | _ -> ""
-
-   (*       ZOutPair of direction * HExp.t * HExp.t
-      | ZPairSelected of direction * HExp.t * HExp.t
-      | ZInHole of ZString.t
-      | ZInFst of t * HExp.t
-      | ZInSnd of HExp.t * t *)
+    let rec viewZ (modelZ : ZModel.t) : string = 
+      match modelZ with
+        | ZModel.ZOutPair (dir,fst,snd) -> 
+            (match dir with
+            | Left -> "|(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")"
+            | Right -> "(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")|" )
+        | ZModel.ZPairSelected (dir,fst,snd) -> 
+            (match dir with
+            | Left -> "|(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")}"
+            | Right -> "{(" ^ (viewHExp fst) ^ "," ^(viewHExp snd) ^ ")|" )
+        | ZModel.ZInHole str -> viewStringSel str
+        | ZModel.ZInFst (fst,snd) -> "(" ^ (viewZ fst) ^ "," ^ (viewHExp snd) ^ ")"
+        | ZModel.ZInSnd (fst,snd) -> "(" ^ (viewHExp fst) ^ "," ^ (viewZ snd) ^ ")"
+    
+    let rec view (model : Model.t) : string =
+        viewZ (Model.to_z model)
   end
 
   module ReactiveStringView(Model : Models.ABSMODEL) = struct 
