@@ -142,9 +142,9 @@ let hexpAction2 = HSel.(OutPair Right)
 let bmodelAction2 = BModel.make (testPair,hexpAction2)
 let testAction2 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)   "(('test','test'),'|}')"  (BModelStringView.view (AbsBModel.execute (AbsBModel.of_b bmodelAction2) Action.NewPair))
 
-let hexpAction3 = HSel.(InFst (InHole {startIdx=0; endIdx=3}))
+let hexpAction3 = HSel.(InFst (InHole {startIdx=0; endIdx=4}))
 let bmodelAction3 = BModel.make (testPair,hexpAction3)
-let testAction3 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)   "('Ente|}rTextt','test')"  (BModelStringView.view (AbsBModel.execute (AbsBModel.of_b bmodelAction3) (Action.EnterString "EnterText")))
+let testAction3 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)   "('Ente|}rText','test')"  (BModelStringView.view (AbsBModel.execute (AbsBModel.of_b bmodelAction3) (Action.EnterString "EnterText")))
 
 
 (* Test string selection methods *)
