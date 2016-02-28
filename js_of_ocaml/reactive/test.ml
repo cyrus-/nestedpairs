@@ -87,18 +87,24 @@ let bmodel5 = BModel.make (testPair,hexpSel5)
 
 let testABSMODELView5 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "('t|e}st','test')" (BModelStringView.view (AbsBModel.of_b bmodel5)) 
 
-(* finish ViewString *)
+let hexpSel6 = HSel.(InFst (InHole {startIdx=0; endIdx=4}))
+(*   ('te|st,'test') *)
+let bmodel6 = BModel.make (testPair,hexpSel6)
 
-(* module HSel = struct 
-      | (Pair(_, snd), InSnd hsel') -> valid_for (snd, hsel')
-      | (_, InSnd _) -> false)
- *)
+let testABSMODELView6 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "('|test}','test')" (BModelStringView.view (AbsBModel.of_b bmodel6)) 
 
-(* TEST valid_for *)
+let hexpSel7 = HSel.(InFst (InHole {startIdx=4; endIdx=0}))
+(*   ('te|st,'test') *)
+let bmodel7 = BModel.make (testPair,hexpSel7)
+
+let testABSMODELView7 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)  "('{test|','test')" (BModelStringView.view (AbsBModel.of_b bmodel7)) 
+
+
+(* finish ViewString DONE *)
+
 let hexpS1 = HSel.(InFst (InHole {startIdx=1; endIdx=2}))
 let testValidSel1 test_ctxt = assert_equal false (HSel.valid_for (testHole , hexpS1)) 
 
-(* let testHole = Hole "test";; *)
 let hexpS2 = HSel.(InHole {startIdx=(-1); endIdx=2})
 let testValidSel2 test_ctxt = assert_equal false (HSel.valid_for (testHole , hexpS2)) 
 
@@ -128,6 +134,18 @@ let testValidSel10 test_ctxt = assert_equal false (HSel.valid_for (nestedNestedP
 
 
 (* Test actions *)
+let hexpAction1 = HSel.(OutPair Left)
+let bmodelAction1 = BModel.make (testPair,hexpAction1)
+let testAction1 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)   "('|}',('test','test'))"  (BModelStringView.view (AbsBModel.execute (AbsBModel.of_b bmodelAction1) Action.NewPair))
+
+let hexpAction2 = HSel.(OutPair Right)
+let bmodelAction2 = BModel.make (testPair,hexpAction2)
+let testAction2 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)   "(('test','test'),'|}')"  (BModelStringView.view (AbsBModel.execute (AbsBModel.of_b bmodelAction2) Action.NewPair))
+
+let hexpAction3 = HSel.(InFst (InHole {startIdx=0; endIdx=3}))
+let bmodelAction3 = BModel.make (testPair,hexpAction3)
+let testAction3 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)   "('Ente|}rTextt','test')"  (BModelStringView.view (AbsBModel.execute (AbsBModel.of_b bmodelAction3) (Action.EnterString "EnterText")))
+
 
 (* Test string selection methods *)
 
@@ -157,6 +175,8 @@ let suite =
   "testABSMODELView3">:: testABSMODELView3;
   "testABSMODELView4">:: testABSMODELView4;
   "testABSMODELView5">:: testABSMODELView5;
+  "testABSMODELView6">:: testABSMODELView6;
+  "testABSMODELView7">:: testABSMODELView7;
   "testValidSel1">:: testValidSel1;
   "testValidSel2">:: testValidSel2;
   "testValidSel3">:: testValidSel3;
@@ -167,6 +187,9 @@ let suite =
   "testValidSel8">:: testValidSel8;
   "testValidSel9">:: testValidSel9;
   "testValidSel10">:: testValidSel10;
+  "testAction1">:: testAction1;
+  "testAction2">:: testAction2;
+  "testAction3">:: testAction3;
   (* "testStringView">:: testStringView *)
   ]
 ;;

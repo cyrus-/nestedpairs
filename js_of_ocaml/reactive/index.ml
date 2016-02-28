@@ -35,13 +35,14 @@ module NestedPairs = struct
       let direction_of {startIdx; endIdx} = 
         if startIdx > endIdx then Left else Right
 
-      (* does the ssel stay within the bounds of str? *) 
+      (* does the ssel stay within the bounds of str? 
+      MH had to add so that last char can be chosen*) 
       let valid_for (str, {startIdx; endIdx}) = 
         let str_length = String.length str in
         (startIdx >= 0) &&
-        (startIdx < str_length) &&
+        (startIdx <= str_length) &&
         (endIdx >= 0) &&
-        (endIdx < str_length)
+        (endIdx <= str_length)
       
       (* absolute length of the selection *)
       let length {startIdx; endIdx} =
