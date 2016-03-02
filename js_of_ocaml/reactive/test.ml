@@ -147,12 +147,40 @@ let bmodelAction3 = BModel.make (testPair,hexpAction3)
 let testAction3 test_ctxt = assert_equal ~printer:(fun p -> Printf.sprintf "%s" p)   "('Ente|}rText','test')"  (BModelStringView.view (AbsBModel.execute (AbsBModel.of_b bmodelAction3) (Action.EnterString "EnterText")))
 
 
+
+
 (* Test string selection methods *)
 
 (* Name the test cases and group them together *)
 
 (* add number to hexp *)
+let hexpPair = (Pair ((Val 1),(Val 2)))
+let simpleHsel =  HSel.(OutPair Left)
+let bmodelPairs = BModel.make (hexpPair,simpleHsel)
+
+let testAddNumber1 test_ctxt = assert_equal (Val 1) (Val 1)
+let testAddNumber2 test_ctxt = assert_equal (Val 99)  (Val 99)
+let testAddNumber3 test_ctxt = assert_equal  (Pair (Pair ((Val 99),(Val 1)),(Hole "test")))   (Pair (Pair ((Val 99),(Val 1)),(Hole "test"))) 
+let testAddNumber4 test_ctxt = assert_equal  (AbsBModel.of_b bmodelPairs) (AbsBModel.of_b bmodelPairs) 
+let testAddNumber5 test_ctxt = assert_equal  ~printer:(fun p -> Printf.sprintf "%s" p) "|(1,2)" (BModelStringView.view (AbsBModel.of_b bmodelPairs)) 
+
+(* add is_complete to hexp AKA, there are no holes *)
+let testAddNumber6 test_ctxt = assert_equal  true (HExp.is_complete hexpPair)
+let testAddNumber7 test_ctxt = assert_equal  false (HExp.is_complete emptyHole)
+let testAddNumber8 test_ctxt = assert_equal  false (HExp.is_complete nestedNestedPair)
+
+(* Convert Hole with a parsable Number to an int *)
+let testAddNumber9 test_ctxt = assert_equal  (Val 1) (HExp.convert_holes_to_val (Hole "1"))
+let testAddNumber10 test_ctxt = assert_equal  (Hole "asdf") (HExp.convert_holes_to_val (Hole "asdf"))
+let testAddNumber11 test_ctxt = assert_equal  (Val 9) (HExp.convert_holes_to_val (Val 9))
+let testAddNumber12 test_ctxt = assert_equal  (Pair ((Hole ""),(Hole ""))) (HExp.convert_holes_to_val emptyPair)
+let testAddNumber13 test_ctxt = assert_equal  (Pair ((Val 3),(Val 4))) (HExp.convert_holes_to_val (Pair ((Hole "3"),(Hole "4"))))
+let testAddNumber14 test_ctxt = assert_equal  (Pair ((Val 3),(Val 7))) (HExp.convert_holes_to_val (Pair ((Hole "3"),(Val 7))))
+
 (* Add addition to evaluate expression *)
+(* Should this be an operator in Pair? a new language construct?  *)
+
+
 
 let suite =
 "suite">:::
@@ -190,6 +218,20 @@ let suite =
   "testAction1">:: testAction1;
   "testAction2">:: testAction2;
   "testAction3">:: testAction3;
+  "testAddNumber1">:: testAddNumber1;
+  "testAddNumber2">:: testAddNumber2;
+  "testAddNumber3">:: testAddNumber3;
+  "testAddNumber4">:: testAddNumber4;
+  "testAddNumber5">:: testAddNumber5;
+  "testAddNumber6">:: testAddNumber6;
+  "testAddNumber7">:: testAddNumber7;
+  "testAddNumber8">:: testAddNumber8;
+  "testAddNumber9">:: testAddNumber9;
+  "testAddNumber10">:: testAddNumber10;
+  "testAddNumber11">:: testAddNumber11;
+  "testAddNumber12">:: testAddNumber12;
+  "testAddNumber13">:: testAddNumber13;
+  "testAddNumber14">:: testAddNumber14;
   (* "testStringView">:: testStringView *)
   ]
 ;;

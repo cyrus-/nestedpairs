@@ -5,7 +5,10 @@ module NestedPairs = struct
 
   (* expressions with holes *)
   module HExp = struct 
-    type t = Pair of t * t | Hole of string
+    type t = 
+      Pair of t * t 
+      | Hole of string
+      | Val of int
    
     (* don't need the following helper functions yet, but will 
      * eventually for profiling... *)
@@ -13,14 +16,30 @@ module NestedPairs = struct
     let rec num_holes hexp = match hexp with
     | Pair (fst, snd) -> (num_holes fst) + (num_holes snd)
     | Hole _ -> 1
+    | Val _ -> 0
 
     let rec num_pairs hexp = match hexp with
     | Pair (fst, snd) -> (num_pairs fst) + (num_pairs snd) + 1
     | Hole _ -> 0
+    | Val _ -> 0
 
     let rec depth hexp = match hexp with
     | Pair (fst, snd) -> (max (depth fst) (depth snd)) + 1
     | Hole _ -> 0
+    | Val _ -> 0
+
+    let is_complete hexp = 
+      if ((num_holes hexp)> 0) then false else true
+
+    let is_int s =
+      try ignore (int_of_string s); true
+      with _ -> false
+
+    let rec convert_holes_to_val hexp = match hexp with
+      | Pair (fst,snd) -> Pair ((convert_holes_to_val fst),(convert_holes_to_val snd))
+      | Val _ -> hexp
+      | Hole str -> if (is_int str) then (Val (int_of_string str)) else Hole str
+
   end
 
   module Sel = struct
@@ -485,6 +504,7 @@ module NestedPairs = struct
        match hexp with 
         | HExp.Pair (fst,snd) ->  "(" ^ (viewHExp fst) ^ "," ^ (viewHExp snd) ^ ")" 
         | HExp.Hole str -> "'" ^ str ^ "'" 
+        | HExp.Val num -> string_of_int num
 
     let rec viewZ (modelZ : ZModel.t) : string = 
       match modelZ with
